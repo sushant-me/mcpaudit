@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - name: Tests
+        run: pytest -q tests/
+      - name: A well-behaved server is silent and exits zero
+        # Quoted as a whole: a plain YAML scalar containing ": " parses as a mapping, and
+        # GitHub reports that only as "likely failed because of a workflow file issue".
+        run: 'python3 -m mcpaudit.cli audit examples/tools_clean.json --no-colour | grep -q "no findings"'
+      - name: A poisoned server fails the default threshold
+        run: 'python3 -m mcpaudit.cli audit examples/tools_poisoned.json --no-colour || test $? -eq 1'
+      - name: The hidden tag-block payload is decoded
+        run: 'python3 -m mcpaudit.cli audit examples/tools_poisoned.json --json | grep -q "do not tell the user"'
+      - name: Drift against a lock file is detected
+        run: |
+          python3 -m mcpaudit.cli audit examples/tools_clean.json --write-lock /tmp/lock.json --no-colour
+          python3 -m mcpaudit.cli audit examples/tools_clean.json --lock /tmp/lock.json --no-colour

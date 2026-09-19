@@ -1,0 +1,31 @@
+[project]
+name = "mcpaudit"
+version = "0.1.0"
+description = "Review an MCP server's tool declarations before you connect, and pin them so a later change is visible"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["mcp", "model-context-protocol", "ai-security", "tool-poisoning", "supply-chain"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Intended Audience :: Developers",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mcpaudit = "mcpaudit.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["mcpaudit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
