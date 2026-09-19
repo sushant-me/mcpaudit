@@ -21,8 +21,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      # The integration tests load a generated policy with the real loader. Pinned to a
+      # commit so this repository does not go red because another one moved.
+      - name: Install policygate at the pinned commit
+        run: pip install "git+https://github.com/sushant-me/policygate@5e4171aa31b533e4a9d781d155f69b3d27533245"
       - name: Tests
         run: pytest -q tests/
+      - name: The generated policy loads in policygate
+        run: 'python3 -c "import policygate; print(policygate.__version__)"'
+      - name: The pipeline demo runs end to end
+        run: 'python3 examples/pipeline.py | grep -q "not allowed just because it is new"' 
       - name: A well-behaved server is silent and exits zero
         # Quoted as a whole: a plain YAML scalar containing ": " parses as a mapping, and
         # GitHub reports that only as "likely failed because of a workflow file issue".

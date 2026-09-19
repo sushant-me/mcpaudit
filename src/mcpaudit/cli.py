@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .checks import SEVERITY_ORDER, audit, extract_tools
 from .lockfile import compare_lock, load_lock, write_lock
+from .policy_out import summarise as summarise_audit, to_policy
 
 EXIT_OK, EXIT_FINDINGS, EXIT_ERROR = 0, 1, 2
 
@@ -101,7 +102,18 @@ def main(argv: list[str] | None = None) -> int:
     audit_parser.add_argument("--write-lock", metavar="PATH", help="record this server's declarations")
     audit_parser.add_argument("--server", default="", help="a label for the lock file")
     audit_parser.add_argument("--no-colour", action="store_true", help="plain output")
+    policy_parser = sub.add_parser(
+        "policy",
+        help="generate a starting policy for policygate from a tool list",
+    )
+    policy_parser.add_argument("source", help="path to a JSON tool list, or '-' for stdin")
+    policy_parser.add_argument("--out", help="write the policy here instead of stdout")
+    policy_parser.add_argument("--server", default="", help="a label to record in the header")
+
     args = parser.parse_args(argv)
+
+    if args.command == "policy":
+        return _run_policy(args)
 
     try:
         payload = _read_source(args.source)
@@ -138,6 +150,42 @@ def main(argv: list[str] | None = None) -> int:
     blocking = [f for f in result.findings if SEVERITY_ORDER[f.severity] <= threshold]
     blocking += [d for d in drift if SEVERITY_ORDER[d.severity] <= threshold]
     return EXIT_FINDINGS if blocking else EXIT_OK
+
+
+def _run_policy(args) -> int:
+    """`mcpaudit policy` — audit, then emit a policygate policy for the same tools."""
+    try:
+        tools = extract_tools(_read_source(args.source))
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"mcpaudit: could not read the tool list: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    result = audit(tools)
+    text = to_policy(tools, result, server=args.server)
+
+    if args.out:
+        try:
+            Path(args.out).write_text(text, encoding="utf-8")
+        except OSError as exc:
+            print(f"mcpaudit: could not write the policy: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        print(f"wrote {args.out}", file=sys.stderr)
+    else:
+        print(text)
+
+    denies = text.count('effect = "deny"')
+    print(
+        f"mcpaudit: {len(tools)} tool(s), audit found {summarise_audit(result)}"
+        + (f", {denies} denied in the generated policy" if denies else ""),
+        file=sys.stderr,
+    )
+    print(
+        "mcpaudit: this is a draft derived from declarations - review it before use",
+        file=sys.stderr,
+    )
+    # Non-zero when the generated policy denies something: a server with collisions or
+    # instruction-carrying descriptions is a finding, not just a policy input.
+    return EXIT_FINDINGS if denies else EXIT_OK
 
 
 if __name__ == "__main__":

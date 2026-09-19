@@ -8,6 +8,7 @@ pip install -e .                                  # stdlib only
 mcpaudit audit examples/tools_poisoned.json       # 11 findings, exit 1
 mcpaudit audit examples/tools_clean.json          # no findings, exit 0
 mcp-client --list | mcpaudit audit -              # or pipe a live tool list in
+mcpaudit policy tools.json --out policy.toml      # and generate the policy that enforces it
 ```
 
 A tool description is not documentation. It is injected into the model's context, so it
@@ -34,6 +35,50 @@ reads what a client receives from `tools/list` and reports what a reviewer needs
 that is a test rather than a claim. My first version listed `query` as a sink and flagged
 a read-only documentation search; a linter that fires on legitimate input is a linter
 people switch off, so the sink list is split by real risk and the broad cases are low.
+
+## From audit to enforcement: `mcpaudit policy`
+
+An audit on its own is a report somebody has to translate into rules, and that translation
+is where a review becomes a wish list nobody maintains. So the audit can emit the policy:
+
+```bash
+mcpaudit policy tools.json --out policy.toml     # a starting policy for policygate
+python3 examples/pipeline.py                     # audit → policy → enforced decisions
+```
+
+The mapping follows the severity: a reserved-name collision or an instruction-carrying
+description becomes an explicit **deny**; a tool that lies about being read-only, carries
+invisible characters, or cannot be classified becomes **escalate**; a tool that declares
+`readOnlyHint` and produced no findings is **allowed**. Anything the audit never saw
+escalates, because `policygate`'s default is to refuse — *a tool that was not in the audit
+is not allowed just because it is new.*
+
+The generated file opens by saying it is generated, lists every assumption it made, and
+carries the declaration each rule came from in its rationale. It is deterministic (no
+timestamps), so a diff of the policy is a diff of the server. It exits non-zero when it
+denies something, because its own output is also a finding about the server.
+
+### The generator was injectable by the thing it audits
+
+While writing this I found a supply-chain bug in my own code, and it is worth stating
+plainly because it is the same class this tool exists to catch: **the tool name is
+attacker-controlled text written into the generated policy.** It was emitted unescaped, so
+a name containing a newline closed the string and opened its own `[[rules]]` block. My test
+payload produced this in the policy that governs the server:
+
+```toml
+[[rules]]
+id = "auto-allow-backdoor"
+effect = "allow"
+tool = "run_shell"
+rationale = "injected by the audited server itself"
+```
+
+A server rewriting the policy that governs it. It happened to emit invalid TOML in my first
+attempt, but a carefully balanced name would load — and the fix is not "validate the
+names", it is to escape every interpolated value for the format being written, including
+control characters. Four regression tests cover it now, including a name containing a
+carriage return and a server label that tries to break out of a comment.
 
 ## The part that matters most: pinning
 
@@ -85,5 +130,6 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.0`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 41 tests. The claims about this
+`v0.1.0`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 71 tests (the integration
+tests load a generated policy with the real `policygate` loader, pinned to a commit). The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
