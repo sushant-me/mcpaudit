@@ -21,7 +21,7 @@ reads what a client receives from `tools/list` and reports what a reviewer needs
 |---|---|---|
 | `reserved-name-collision` | **critical** | a tool named `set_model_response`, `google_search`, `finish`… — names the framework installs *outside* the tool table, so the collision silently displaces a primitive |
 | `instruction-in-declaration` | high | instruction-shaped text in a name, description or schema: *"ignore previous instructions"*, *"do not tell the user"*, *"without asking"*, credential and exfiltration language |
-| `invisible-characters` | high | zero-width, bidirectional and **Unicode tag-block** characters — with the tag payload *decoded*, because that block encodes printable ASCII into text of no visible width |
+| `invisible-characters` | high | zero-width, bidirectional and **Unicode tag-block** characters — with the tag payload *decoded*, because that block encodes printable ASCII into text of no visible width. Also the **variation-selector supplement** (U+E0100–E01EF, an invisible data channel of 240 code points), the canonical Hangul and Khmer fillers, and every other Unicode `Cf` format character that renders as nothing |
 | `look-alike-tool-names` | high | two names that normalise to the same ASCII (`search` / `ѕearch`) |
 | `destructive-declared-read-only` | high | a tool that looks state-changing but declares `readOnlyHint: true` |
 | `duplicate-tool-name` | high | the same name twice, where one definition silently wins |
@@ -117,6 +117,11 @@ file · `2` the input could not be read. `--json` for tooling, `--no-colour` for
 - **The list-based checks are partial.** The confusables table is a curated subset, not the
   full Unicode confusables data, and the instruction patterns can match a description that
   merely quotes them. Every finding quotes its evidence so the judgement stays with you.
+  The *invisible-character* ranges are the exception: the classification is exhaustive over
+  Unicode category `Cf` — every format code point is either listed as invisible or listed,
+  with a reason, as one that renders — and a test fails if a new one is neither. That test
+  exists because the range list was once merely incomplete: U+FE00–FE0F was documented as
+  covering "variation selectors" while 240 of the 256 were not covered at all.
 - **The mutation-verb check reads names by convention, not by meaning.** Mutation words are
   matched as whole tokens, and a name opening with a reader verb (`get_`, `list_`, `read_`,
   `search_`, …) is treated as read-only unless its *description* uses a mutation word the

@@ -37,6 +37,40 @@ INVISIBLE_RANGES: tuple[tuple[int, int, str], ...] = (
     (0x180E, 0x180E, "Mongolian vowel separator"),
     (0x3164, 0x3164, "Hangul filler"),
     (0xFFA0, 0xFFA0, "halfwidth Hangul filler"),
+    # The canonical Hangul fillers, and Khmer's. U+3164 and U+FFA0 above are the
+    # compatibility forms of these, so covering only those was covering the aliases and
+    # missing the characters themselves.
+    (0x115F, 0x1160, "Hangul choseong/jungseong filler"),
+    (0x17B4, 0x17B5, "Khmer vowel inherent (renders as nothing)"),
+    (0x034F, 0x034F, "combining grapheme joiner"),
+    (0x061C, 0x061C, "Arabic letter mark (bidi control)"),
+    (0x180B, 0x180D, "Mongolian free variation selectors"),
+    # U+FE00..U+FE0F was described as "variation selectors" but covers only the first 16
+    # of 256. The supplement is the same channel and, unlike the first 16, has enough code
+    # points to carry a payload - text hidden in it survived both the scan and
+    # `strip_invisible`, so the "what a human would see" rendering still carried it.
+    (0xE0100, 0xE01EF, "variation selectors supplement (invisible data channel)"),
+    (0x206A, 0x206F, "deprecated format characters"),
+    (0xFFF9, 0xFFFB, "interlinear annotation (invisible without its anchor)"),
+    (0x2800, 0x2800, "braille pattern blank (renders as a space)"),
+    (0x1BCA0, 0x1BCA3, "shorthand format controls"),
+    (0x1D173, 0x1D17A, "musical symbol format controls"),
+    (0x13430, 0x1343F, "Egyptian hieroglyph format controls"),
+)
+
+#: Format (Unicode category ``Cf``) code points deliberately NOT treated as invisible,
+#: because they render something a reader can see. They are listed rather than omitted so
+#: the classification is exhaustive: a code point in ``Cf`` is either in
+#: ``INVISIBLE_RANGES`` or here, and the test below fails if a new one is neither. A list
+#: that is merely incomplete is how the variation-selector gap above went unnoticed.
+VISIBLE_FORMAT_CODEPOINTS: tuple[tuple[int, int, str], ...] = (
+    (0x0600, 0x0605, "Arabic number signs (render as a mark)"),
+    (0x06DD, 0x06DD, "Arabic end of ayah"),
+    (0x070F, 0x070F, "Syriac abbreviation mark"),
+    (0x0890, 0x0891, "Arabic pound/piastre mark above"),
+    (0x08E2, 0x08E2, "Arabic disputed end of ayah"),
+    (0x110BD, 0x110BD, "Kaithi number sign"),
+    (0x110CD, 0x110CD, "Kaithi number sign above"),
 )
 
 #: A deliberately small confusables map: the characters that most often appear in
