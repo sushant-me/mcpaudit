@@ -65,11 +65,65 @@ BROAD_SINKS = frozenset({
 
 #: Words that suggest a tool changes state or leaves the machine. If a tool looks like
 #: this and declares no annotations, that is worth a conversation.
+#:
+#: Matched on whole tokens, never as substrings — see `_mentions_mutation`. `"run"` is
+#: deliberately absent: it is a generic verb (you run queries, reports and diagnostics),
+#: and the tools where it does mean mutation — `run_command`, `run_shell` — are caught by
+#: `unconstrained-sink-parameter`, on the parameter that makes them dangerous. `"exec"`
+#: stays because it appears in names that execute something.
 DESTRUCTIVE_HINTS = (
     "delete", "drop", "remove", "destroy", "purge", "truncate", "write", "update",
-    "create", "insert", "execute", "exec", "run", "shell", "spawn", "deploy",
+    "create", "insert", "execute", "exec", "shell", "spawn", "deploy",
     "upload", "send", "post", "publish", "transfer", "pay", "refund", "grant",
 )
+
+#: Splits an identifier or a sentence into lower-case words, in order. Handles
+#: snake_case, kebab-case, dotted names and plain prose, plus camelCase boundaries
+#: (`deleteBudget` -> ["delete", "budget"]), which is why it is a regex rather than a
+#: split on punctuation. Order matters: the convention is verb-first, so the first
+#: token is the strongest evidence about what a tool does.
+_TOKEN_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+")
+_MUTATION_TOKENS = frozenset(DESTRUCTIVE_HINTS)
+
+#: A name that opens with one of these is a reader. The convention is `verb_noun`, and
+#: several mutation verbs are also ordinary nouns, so `get_grant_balance`,
+#: `get_transfer_history` and `list_payment_methods` are read-only tools whose names
+#: contain mutation words. Token matching alone cannot tell those from `grant_access`,
+#: so the prefix decides, and a description that contradicts the name still reports.
+_READ_PREFIXES = frozenset({
+    "get", "list", "read", "search", "fetch", "describe", "show", "view", "find",
+    "query", "lookup", "check", "inspect", "preview", "scan", "count", "status",
+    "explain", "summary", "report", "export", "download",
+})
+
+
+def _tokens(text: str) -> list[str]:
+    return [match.group(0).lower() for match in _TOKEN_RE.finditer(text)]
+
+
+def _mentions_mutation(name: str, description: str) -> bool:
+    """Whether a name or description uses a mutation verb as a whole word.
+
+    This was `h in name.lower()`, a substring test, and the difference is not
+    academic: `get_runbook` matched `"run"`, `list_postgres_instances` matched
+    `"post"`, and `get_updates` matched `"update"`, so a well-behaved server produced
+    ten HIGH findings for tools that only read. A severity that fires on a
+    documentation fetch is one a reader learns to ignore — the failure this module's
+    own docstring already describes, arrived at from a different direction.
+
+    Known limit: a reader-shaped name whose *description* is silent will not report a
+    mutation word the name carries as a noun, so `get_delete_log` is not flagged. That
+    is the precision-first direction, and it is written down rather than discovered.
+    """
+    name_tokens = _tokens(name)
+    if name_tokens and name_tokens[0] in _READ_PREFIXES:
+        # For a reader, a mutation word the name already carries is the object being
+        # read, not a verb: `get_grant_balance` reads a grant, and its description
+        # says "grant" too. Only a mutation word the name does *not* contain is
+        # evidence that the description contradicts the name.
+        return bool(set(_tokens(description)) & _MUTATION_TOKENS - set(name_tokens))
+    return bool(set(name_tokens) & _MUTATION_TOKENS) or bool(
+        set(_tokens(description)) & _MUTATION_TOKENS)
 
 
 @dataclass
@@ -248,7 +302,7 @@ def check_destructive_annotations(tools: list[dict[str, Any]]) -> list[Finding]:
     for tool in tools:
         name = str(tool.get("name", ""))
         description = str(tool.get("description", "")).lower()
-        looks_destructive = any(h in name.lower() or h in description for h in DESTRUCTIVE_HINTS)
+        looks_destructive = _mentions_mutation(name, description)
         if not looks_destructive:
             continue
         annotations = tool.get("annotations") or {}

@@ -329,3 +329,50 @@ def test_cli_detects_drift_against_a_lock_file(tmp_path) -> None:
     result = run_cli("audit", str(changed), "--lock", str(lock), "--no-colour")
     assert result.returncode == 1
     assert "description-changed" in result.stdout
+
+
+# --- a name is not a sentence: mutation must be matched on tokens ------------
+#
+# The hint list was matched with `h in name.lower()`, so `get_runbook` matched
+# "run" and `list_postgres_instances` matched "post". Every name below is a
+# plausible read-only tool on a well-behaved server, and every one was reported
+# HIGH as state-changing - the false positive this file's docstring says must not
+# happen, arrived at from a different direction than the `query` sink was.
+
+_READ_ONLY_NAMES = [
+    "get_runbook", "run_query", "list_postgres_instances", "get_postal_address",
+    "list_created_at_index", "get_updates", "read_writer_stats", "get_sender_info",
+    "list_executive_reports", "get_grant_balance",
+]
+
+
+def test_a_read_only_name_is_not_read_as_state_changing() -> None:
+    tools = [
+        {"name": name, "description": "Read-only lookup.",
+         "annotations": {"readOnlyHint": True}}
+        for name in _READ_ONLY_NAMES
+    ]
+    findings = [
+        f for f in audit(tools).findings
+        if f.rule in ("destructive-declared-read-only", "missing-annotations")
+    ]
+    assert findings == [], [f.tool for f in findings]
+
+
+def test_the_mutation_verbs_are_still_caught_in_a_name() -> None:
+    """The positive control: precision must not be bought with recall."""
+    for name in ("delete_budget", "create_budget", "update_record", "drop_table",
+                 "truncate_log", "purge_cache", "upload_artifact", "send_email",
+                 "execute_script", "grant_access", "remove_user", "publish_release"):
+        tools = [{"name": name, "description": "Does the thing.",
+                  "annotations": {"readOnlyHint": True}}]
+        rules = {f.rule for f in audit(tools).findings}
+        assert "destructive-declared-read-only" in rules, f"{name} is no longer caught"
+
+
+def test_a_mutation_verb_in_the_description_is_still_caught() -> None:
+    """The name is the primary signal, but a description alone must still work."""
+    tools = [{"name": "budget_admin", "description": "Permanently delete the budget.",
+              "annotations": {"readOnlyHint": True}}]
+    rules = {f.rule for f in audit(tools).findings}
+    assert "destructive-declared-read-only" in rules
