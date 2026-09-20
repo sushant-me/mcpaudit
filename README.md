@@ -117,6 +117,15 @@ file · `2` the input could not be read. `--json` for tooling, `--no-colour` for
 - **The list-based checks are partial.** The confusables table is a curated subset, not the
   full Unicode confusables data, and the instruction patterns can match a description that
   merely quotes them. Every finding quotes its evidence so the judgement stays with you.
+- **The mutation-verb check reads names by convention, not by meaning.** Mutation words are
+  matched as whole tokens, and a name opening with a reader verb (`get_`, `list_`, `read_`,
+  `search_`, …) is treated as read-only unless its *description* uses a mutation word the
+  name does not contain. That is why `get_runbook` and `list_postgres_instances` are not
+  reported — and it is also why `get_delete_log` is not either. The trade is deliberate:
+  the check was a substring match until a realistic server produced ten HIGH findings for
+  tools that only read, and a severity that fires on a documentation fetch is one people
+  learn to skip. The regression case is `tools-readonly-names-with-mutation-words` in
+  [tool-boundary-corpus](https://github.com/sushant-me/tool-boundary-corpus).
 - **It does not connect to a server.** You supply the `tools/list` JSON (or pipe it in), so
   `mcpaudit` needs no network, no credentials and no SDK — and it cannot be turned against
   a server you are not already talking to.
@@ -130,6 +139,6 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.0`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 71 tests (the integration
+`v0.1.0`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 74 tests (the integration
 tests load a generated policy with the real `policygate` loader, pinned to a commit). The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
