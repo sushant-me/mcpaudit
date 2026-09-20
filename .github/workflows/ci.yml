@@ -23,8 +23,14 @@ jobs:
       - run: pip install -e ".[dev]"
       # The integration tests load a generated policy with the real loader. Pinned to a
       # commit so this repository does not go red because another one moved.
+      #
+      # The pin is advanced deliberately, not left where it was. This one sat on a commit
+      # from before policygate v0.1.1, which fixed a glob rule that a newline could step
+      # around - so the integration here was validating a policy loader whose deny rules
+      # were bypassable, and would have reported success for exactly the behaviour that fix
+      # exists to stop.
       - name: Install policygate at the pinned commit
-        run: pip install "git+https://github.com/sushant-me/policygate@5e4171aa31b533e4a9d781d155f69b3d27533245"
+        run: pip install "git+https://github.com/sushant-me/policygate@73b3da28ede820d3f3452b408e040fb1b1c78c14"
       - name: Tests
         run: pytest -q tests/
       - name: The generated policy loads in policygate
