@@ -147,3 +147,12 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 `v0.1.1`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 74 tests (the integration
 tests load a generated policy with the real `policygate` loader, pinned to a commit). The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
+
+## Security
+
+This project has a published security advisory:
+**[GHSA-62f4-h552-54wc](https://github.com/sushant-me/mcpaudit/security/advisories/GHSA-62f4-h552-54wc)**
+(medium) — The invisible-character ranges covered 16 of 256 variation selectors, and the omission also survived the helper meant to show a reviewer what the text really contains.
+
+Fixed in v0.1.2. The advisory carries the reproduction and the regression test; the fix
+is checked by the test suite on every push.
