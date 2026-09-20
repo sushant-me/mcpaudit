@@ -139,6 +139,6 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.0`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 74 tests (the integration
+`v0.1.1`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 74 tests (the integration
 tests load a generated policy with the real `policygate` loader, pinned to a commit). The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
