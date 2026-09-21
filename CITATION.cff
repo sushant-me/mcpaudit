@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software in work you publish, please cite it as below."
+title: "mcpaudit"
+type: software
+authors:
+  - family-names: Poudel
+    given-names: Sushant
+    email: sushant.poudel2028@gmail.com
+    affiliation: "Nepal Engineering College, Bhaktapur, Nepal"
+    # Register an ORCID iD and add it here — it is the identifier that
+    # disambiguates this author from other researchers of the same name:
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+abstract: >-
+  Review an MCP server's tool declarations before you connect, and pin them so a later change is visible.
+keywords:
+  - mcp
+  - model-context-protocol
+  - ai-security
+  - tool-poisoning
+  - supply-chain
+license: MIT
+repository-code: "https://github.com/sushant-me/mcpaudit"
