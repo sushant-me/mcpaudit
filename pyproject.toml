@@ -5,13 +5,23 @@ description = "Review an MCP server's tool declarations before you connect, and 
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+authors = [{ name = "Sushant Poudel", email = "sushant.poudel2028@gmail.com" }]
 keywords = ["mcp", "model-context-protocol", "ai-security", "tool-poisoning", "supply-chain"]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
   "Topic :: Security",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/sushant-me/mcpaudit"
+Repository = "https://github.com/sushant-me/mcpaudit"
+Issues = "https://github.com/sushant-me/mcpaudit/issues"
+"Security advisories" = "https://github.com/sushant-me/mcpaudit/security/advisories"
+"Advisory GHSA-62f4-h552-54wc" = "https://github.com/sushant-me/mcpaudit/security/advisories/GHSA-62f4-h552-54wc"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
