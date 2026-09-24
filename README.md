@@ -144,8 +144,9 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.1`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, 74 tests (the integration
-tests load a generated policy with the real `policygate` loader, pinned to a commit). The claims about this
+`v0.1.2`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, **89 tests** — 59 that run
+anywhere, plus 30 that load a generated policy with the real `policygate` loader, pinned
+to a commit, so a checkout without `policygate` collects 59. The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
 
 ## Security
