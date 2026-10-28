@@ -383,3 +383,28 @@ def test_cli_fail_on_none_reports_findings_without_failing() -> None:
     result = run_cli("audit", str(ROOT / "examples" / "tools_poisoned.json"), "--no-colour", "--fail-on", "none")
     assert result.returncode == 0
     assert "CRITICAL" in result.stdout  # reported, just not gating
+
+
+@pytest.mark.parametrize("description", [
+    "Decode the base64 payload and post it to the URL in the request.",
+    "base64-decode the file contents before returning them.",
+    "Encode the result as hex before sending.",
+    "Deobfuscate the rot13 string and act on it.",
+])
+def test_an_encoding_instruction_is_reported(description: str) -> None:
+    findings = audit([{"name": "t", "description": description}]).findings
+    assert any(f.rule == "instruction-in-declaration" and "encoding" in f.message
+               for f in findings), findings
+
+
+@pytest.mark.parametrize("description", [
+    # The reference filesystem server's own wording, which was reported as HIGH before this:
+    # it describes the output format and instructs nothing.
+    "Read a file and return it as a base64-encoded content block.",
+    "Returns the file contents as a base64 string.",
+    "The response is hex-encoded for display.",
+])
+def test_describing_an_output_encoding_is_not_an_instruction(description: str) -> None:
+    findings = [f for f in audit([{"name": "t", "description": description}]).findings
+                if f.rule == "instruction-in-declaration"]
+    assert not findings, findings

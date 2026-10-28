@@ -92,6 +92,36 @@ names", it is to escape every interpolated value for the format being written, i
 control characters. Four regression tests cover it now, including a name containing a
 carriage return and a server label that tries to break out of a comment.
 
+## What it reports on the reference servers
+
+The `@modelcontextprotocol` servers are the public examples every client is tested against,
+so they are the fairest first measurement — captured over stdio and audited as payloads:
+
+| server | tools | findings |
+|---|---|---|
+| `server-filesystem` | 14 | 0 high · 11 medium · 1 low |
+| `server-memory` | 9 | none |
+| `server-sequential-thinking` | 1 | none |
+| `server-everything` | 16 | 2 high · 1 low |
+
+The eleven `medium` findings on `server-filesystem` are all `unconstrained-sink-parameter`
+on `path`. That is not a defect in the server: a filesystem tool's entire contract is a
+free-form path, and constraining it with an `enum` would break the tool. It is reported
+because the parameter is where an allowlist would have to go, not because the tool is wrong.
+
+**This measurement found a false positive in this tool.** `server-filesystem`'s
+`read_media_file` describes its own output — *"returned as a base64-encoded content block"* —
+and that was reported as **HIGH `instruction-in-declaration`**, because the rule matched the
+word `base64` on its own. An encoding *mention* is not an encoding instruction: the
+instruction is the verb (*"decode the base64 payload"*, *"base64-decode this"*). The pattern
+now requires one, and the same payload reports no high finding. The regression test uses the
+server's own wording as the negative case.
+
+`server-everything` is a test fixture: one of its tools declares `readOnlyHint: true` while
+its name says it triggers an update, and another names credential-like values in its
+description. Both are the declarations this tool exists to surface, and a reviewer seeing
+them is the point — not a claim that the fixture is malicious.
+
 ## The part that matters most: pinning
 
 Reviewing a server once is not enough, because a server can change after you approve it —
@@ -183,7 +213,7 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.3`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, **90 tests** — 60 that run
+`v0.1.3`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, **97 tests** — 67 that run
 anywhere, plus 30 that load a generated policy with the real `policygate` loader, pinned
 to a commit, so a checkout without `policygate` collects 60. The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).

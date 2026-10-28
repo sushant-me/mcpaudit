@@ -43,7 +43,14 @@ INSTRUCTION_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"(?i)before\s+(answering|responding|replying)", "behavioural precondition"),
     (r"(?i)\b(exfiltrate|exfil|leak|steal)\b", "exfiltration language"),
     (r"(?i)(ssh\s+key|id_rsa|\.env\b|credentials?\b|api[_\s-]?key)", "credential target"),
-    (r"(?i)\bbase64\b|\brot13\b|\bhex[- ]?decode", "encoding instruction"),
+    # An encoding *mention* is not an encoding instruction. The bare token fired on
+    # "return the file as a base64-encoded content block" - a HIGH finding against the
+    # reference filesystem server for describing its own output format. The instruction
+    # is the verb: "decode the base64 payload", "base64-decode this". A description that
+    # only names the format tells the model nothing to do.
+    (r"(?i)\b(?:decode|deobfuscate|encode)\b[^.\n]{0,40}?\b(?:base64|hex|rot13)\b"
+     r"|\b(?:base64|hex|rot13)\b[^.\n]{0,15}?\b(?:decode|deobfuscate|encode)\b",
+     "encoding instruction"),
     (r"(?i)\bcurl\b|\bwget\b|\bfetch\s+https?://", "network fetch instruction"),
     (r"(?i)(/etc/sudoers|/etc/shadow|rm\s+-rf\s+/|chmod\s+777)", "destructive command"),
 )
