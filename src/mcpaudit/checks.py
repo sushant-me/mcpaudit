@@ -42,7 +42,14 @@ INSTRUCTION_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"(?i)you\s+must\s+(always|never)", "imperative instruction"),
     (r"(?i)before\s+(answering|responding|replying)", "behavioural precondition"),
     (r"(?i)\b(exfiltrate|exfil|leak|steal)\b", "exfiltration language"),
-    (r"(?i)(ssh\s+key|id_rsa|\.env\b|credentials?\b|api[_\s-]?key)", "credential target"),
+    # A topic mention is not a target. The bare words fired on the reference test server's
+    # get-env description - "Values of credential-like names … are masked" - which is a tool
+    # stating that it REDACTS them. What this rule is for is an instruction to reach one:
+    # an action verb followed by the thing it reaches for.
+    (r"(?i)\b(?:read|open|cat|send|post|upload|fetch|include|attach|return|print|show|dump|reveal|exfiltrate|leak|copy|grab|list)\b[^.\n]{0,40}?(?:ssh\s+key|id_rsa|\.env|credentials?|api[_ \-]?keys?|secret[_ \-]?keys?|access[_ \-]?tokens?)\b",
+     "credential target"),
+    # A path into a secret store needs no verb: naming it at all is the signal.
+    (r"(?i)(?:~/\.ssh|/\.ssh/id_|/etc/(?:shadow|passwd))", "credential path"),
     # An encoding *mention* is not an encoding instruction. The bare token fired on
     # "return the file as a base64-encoded content block" - a HIGH finding against the
     # reference filesystem server for describing its own output format. The instruction

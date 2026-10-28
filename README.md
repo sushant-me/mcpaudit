@@ -102,25 +102,30 @@ so they are the fairest first measurement — captured over stdio and audited as
 | `server-filesystem` | 14 | 0 high · 11 medium · 1 low |
 | `server-memory` | 9 | none |
 | `server-sequential-thinking` | 1 | none |
-| `server-everything` | 16 | 2 high · 1 low |
+| `server-everything` | 16 | 1 high · 1 low |
 
 The eleven `medium` findings on `server-filesystem` are all `unconstrained-sink-parameter`
 on `path`. That is not a defect in the server: a filesystem tool's entire contract is a
 free-form path, and constraining it with an `enum` would break the tool. It is reported
 because the parameter is where an allowlist would have to go, not because the tool is wrong.
 
-**This measurement found a false positive in this tool.** `server-filesystem`'s
-`read_media_file` describes its own output — *"returned as a base64-encoded content block"* —
-and that was reported as **HIGH `instruction-in-declaration`**, because the rule matched the
-word `base64` on its own. An encoding *mention* is not an encoding instruction: the
-instruction is the verb (*"decode the base64 payload"*, *"base64-decode this"*). The pattern
-now requires one, and the same payload reports no high finding. The regression test uses the
-server's own wording as the negative case.
+**This measurement found two false positives in this tool, both the same shape: a topic
+mention read as an instruction.**
 
-`server-everything` is a test fixture: one of its tools declares `readOnlyHint: true` while
-its name says it triggers an update, and another names credential-like values in its
-description. Both are the declarations this tool exists to surface, and a reviewer seeing
-them is the point — not a claim that the fixture is malicious.
+- `server-filesystem`'s `read_media_file` describes its own output — *"returned as a
+  base64-encoded content block"* — and was reported **HIGH `instruction-in-declaration`**
+  because the rule matched the word `base64` on its own. The instruction is the verb
+  (*"decode the base64 payload"*), so the pattern now requires one.
+- `server-everything`'s `get-env` says that credential-like names **are masked**, and was
+  reported as a **HIGH credential target**. Naming a secret while stating that you redact it
+  is the opposite of reaching for one; the pattern now requires an action verb followed by
+  the target, and a bare path into a secret store (`.ssh/id_*`, `/etc/shadow`) is kept as its
+  own signal because that needs no verb.
+
+Both regression tests use the servers' own wording as the negative case. On the same
+payloads, `server-filesystem` reports no high finding and `server-everything` reports one:
+`trigger-resource-update` declares `readOnlyHint: true` while its name says it triggers an
+update. That one is the declaration this tool exists to surface.
 
 ## The part that matters most: pinning
 
@@ -213,7 +218,7 @@ the same class at different moments: *before you connect* (mcpaudit), *at connec
 
 ## Status
 
-`v0.1.3`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, **97 tests** — 67 that run
+`v0.1.3`, stdlib only, Python 3.11+, CI on 3.11/3.12/3.13, **104 tests** — 74 that run
 anywhere, plus 30 that load a generated policy with the real `policygate` loader, pinned
 to a commit, so a checkout without `policygate` collects 60. The claims about this
 tool are re-checked weekly by [sushant-me/reputation](https://github.com/sushant-me/reputation).
