@@ -1,5 +1,9 @@
 # mcpaudit
 
+[![CI](https://github.com/sushant-me/mcpaudit/actions/workflows/ci.yml/badge.svg)](https://github.com/sushant-me/mcpaudit/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://github.com/sushant-me/mcpaudit/blob/main/pyproject.toml)
+[![License](https://img.shields.io/github/license/sushant-me/mcpaudit)](https://github.com/sushant-me/mcpaudit/blob/main/LICENSE)
+
 **Review an MCP server's tool declarations before you connect to it — and pin them, so a
 later change is visible instead of silent.**
 
