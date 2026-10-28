@@ -117,7 +117,34 @@ appearing after approval is exactly what the check is for.
 ## Exit codes, because this belongs in a pipeline
 
 `0` clean · `1` findings at or above `--fail-on` (default `high`), or drift against a lock
-file · `2` the input could not be read. `--json` for tooling, `--no-colour` for logs.
+file · `2` the input could not be read. `--fail-on none` reports everything and never fails,
+which is how a team trials the gate before turning it on. `--json` for tooling,
+`--no-colour` for logs.
+
+## Use it in CI
+
+The repository is a composite action, so pinning a server's declarations is one step in a
+workflow:
+
+```yaml
+name: mcp-tool-drift
+on: [pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: sushant-me/mcpaudit@v1
+        with:
+          source: tools.json          # the payload your client receives from tools/list
+          lock: mcpaudit.lock.json    # committed when the server was reviewed
+          fail-on: high               # 'none' reports without failing while you trial it
+```
+
+Capture the payload once with `mcp-client --list > tools.json` and commit it next to the
+lock file. The action fails the job when a declaration changes after approval — the drift
+`--lock` exists to catch — and exports `findings`, `worst` and `exit-code` as outputs, with
+a findings table written to the job summary.
 
 ## What it does not do — read this before trusting a clean report
 

@@ -1,0 +1,63 @@
+name: Release
+
+# The README documents `uses: sushant-me/mcpaudit@v1  # moving major tag`. A tag that is
+# meant to move and does not is worse than a pinned tag, because the pin is a promise: the
+# first job keeps the promise when a release is published, and the second checks it every
+# week, because the failure mode here is silence.
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  move-major-tag:
+    name: Point v1 at this release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - name: Move v1 to the released commit
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          git tag -f v1 "$sha"
+          git push --force origin "refs/tags/v1"
+          echo "v1 -> $sha (${{ github.event.release.tag_name }})"
+      - name: Assert the action tag contains this release
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          git merge-base --is-ancestor "${{ github.event.release.tag_name }}" v1 \
+            || { echo "::error::v1 does not contain ${{ github.event.release.tag_name }}"; exit 1; }
+          echo "v1 contains ${{ github.event.release.tag_name }}: ok"
+
+  check-major-tag:
+    name: v1 still contains the latest release
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fail if the documented action tag has fallen behind
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)"
+          test -n "$latest" || { echo "no release tags found"; exit 1; }
+          if git merge-base --is-ancestor "$latest" v1; then
+            echo "v1 contains the latest release ($latest): ok"
+          else
+            echo "::error::v1 ($(git rev-parse --short v1)) does not contain the latest release ($latest)."
+            echo "Anyone following the README's '@v1' is running a build from before it."
+            exit 1
+          fi

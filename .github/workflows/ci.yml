@@ -45,7 +45,38 @@ jobs:
         run: 'python3 -m mcpaudit.cli audit examples/tools_poisoned.json --no-colour || test $? -eq 1'
       - name: The hidden tag-block payload is decoded
         run: 'python3 -m mcpaudit.cli audit examples/tools_poisoned.json --json | grep -q "do not tell the user"'
+      - name: Report-only mode exits zero and still prints the findings
+        run: |
+          python3 -m mcpaudit.cli audit examples/tools_poisoned.json --no-colour --fail-on none > /tmp/report.txt
+          grep -q CRITICAL /tmp/report.txt
       - name: Drift against a lock file is detected
         run: |
           python3 -m mcpaudit.cli audit examples/tools_clean.json --write-lock /tmp/lock.json --no-colour
           python3 -m mcpaudit.cli audit examples/tools_clean.json --lock /tmp/lock.json --no-colour
+
+  # The action is how most people will actually run this, so it is tested the way they
+  # will: `uses: ./` against the two fixtures — a pass for the clean server, and a
+  # failed job (with the count and worst severity still exported) for the poisoned one.
+  action-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          source: examples/tools_clean.json
+
+  action-poisoned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - id: audit
+        uses: ./
+        continue-on-error: true
+        with:
+          source: examples/tools_poisoned.json
+      - name: The action failed the job for a poisoned server
+        run: test "${{ steps.audit.outcome }}" = "failure"
+      - name: The action still exported the count and the worst severity
+        run: |
+          test "${{ steps.audit.outputs.findings }}" -gt 0
+          test "${{ steps.audit.outputs.worst }}" = "critical"

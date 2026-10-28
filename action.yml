@@ -1,0 +1,147 @@
+name: mcpaudit
+description: >-
+  Audit an MCP server's tool declarations before an agent connects — reserved-name
+  collisions, instruction-shaped text, invisible Unicode with the tag-block payload
+  decoded, look-alike names, and destructive tools that declare `readOnlyHint`.
+  Fails the job on findings at or above the chosen severity, and reports drift
+  against a committed lock file.
+author: Sushant Poudel
+
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  source:
+    description: >-
+      Path to a JSON payload containing the server's tool list, or `-` to read it
+      from stdin. Capture one from a live server with `mcp-client --list > tools.json`.
+    required: false
+    default: tools.json
+  fail-on:
+    description: >-
+      Lowest severity that fails the job: critical, high, medium, low or info. The
+      default is `high`, because `low` and `medium` are used for residual cases that
+      would make a build unusable if they gated it.
+    required: false
+    default: high
+  lock:
+    description: >-
+      Path to a committed lock file. When set, the declarations are compared with it
+      and any change is reported as drift — the shape a tool-poisoning rug pull takes
+      after the user has already approved the server once.
+    required: false
+    default: ''
+  write-lock:
+    description: >-
+      Write the current declarations to this path. Use it locally to create the lock
+      file you commit; leave empty in CI.
+    required: false
+    default: ''
+  summary:
+    description: Write a findings summary to the job summary.
+    required: false
+    default: 'true'
+
+outputs:
+  findings:
+    description: Number of findings reported, at any severity.
+    # A composite action does not re-export its step outputs automatically; the
+    # `value` is what maps them. Without this mapping the output exists and is
+    # always empty.
+    value: ${{ steps.audit.outputs.findings }}
+  worst:
+    description: The highest severity reported, or `-` when the audit was clean.
+    value: ${{ steps.audit.outputs.worst }}
+  exit-code:
+    description: '0 clean; 1 when a finding met `fail-on`, or the declarations drifted from `lock`.'
+    value: ${{ steps.audit.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install mcpaudit
+      shell: bash
+      # A venv rather than `pip install` into the runner's Python: runner images
+      # change, and a PEP-668 externally-managed environment would turn that into a
+      # confusing setup failure instead of an audit.
+      run: |
+        python3 -m venv "$RUNNER_TEMP/mcpaudit-venv"
+        "$RUNNER_TEMP/mcpaudit-venv/bin/pip" install --quiet --disable-pip-version-check "${{ github.action_path }}"
+        echo "$RUNNER_TEMP/mcpaudit-venv/bin" >> "$GITHUB_PATH"
+
+    - name: Audit
+      id: audit
+      shell: bash
+      env:
+        MCP_SOURCE: ${{ inputs.source }}
+        MCP_FAIL_ON: ${{ inputs.fail-on }}
+        MCP_LOCK: ${{ inputs.lock }}
+        MCP_WRITE_LOCK: ${{ inputs.write-lock }}
+        MCP_SUMMARY: ${{ inputs.summary }}
+      run: |
+        set +e
+        args=(audit "$MCP_SOURCE" --json --fail-on "$MCP_FAIL_ON")
+        [ -n "$MCP_LOCK" ] && args+=(--lock "$MCP_LOCK")
+        [ -n "$MCP_WRITE_LOCK" ] && args+=(--write-lock "$MCP_WRITE_LOCK")
+        mcpaudit "${args[@]}" > "$RUNNER_TEMP/mcpaudit.json"
+        code=$?
+        set -e
+
+        # The human report goes to the log whether or not the step is about to fail,
+        # so a red run still shows what tripped it. Stdin can only be read once, so
+        # that source prints the machine output instead of being consumed twice.
+        if [ "$MCP_SOURCE" != "-" ]; then
+          set +e
+          mcpaudit audit "$MCP_SOURCE" --fail-on none > "$RUNNER_TEMP/mcpaudit.txt" 2>&1
+          set -e
+        else
+          cp "$RUNNER_TEMP/mcpaudit.json" "$RUNNER_TEMP/mcpaudit.txt"
+        fi
+        cat "$RUNNER_TEMP/mcpaudit.txt"
+
+        read -r count worst < <(python3 - "$RUNNER_TEMP/mcpaudit.json" <<'PY'
+        import json, sys
+
+        with open(sys.argv[1]) as f:
+            report = json.load(f)
+        print(len(report.get("findings") or []), report.get("worst") or "-")
+        PY
+        )
+
+        {
+          echo "findings=$count"
+          echo "worst=$worst"
+          echo "exit-code=$code"
+        } >> "$GITHUB_OUTPUT"
+
+        if [ "$MCP_SUMMARY" = "true" ]; then
+          python3 - "$RUNNER_TEMP/mcpaudit.json" "$MCP_FAIL_ON" "$code" \
+            >> "$GITHUB_STEP_SUMMARY" <<'PY'
+        import json, sys
+
+        with open(sys.argv[1]) as f:
+            report = json.load(f)
+        threshold, code = sys.argv[2], sys.argv[3]
+        counts = report.get("counts") or {}
+        findings = report.get("findings") or []
+
+        print("## mcpaudit")
+        print()
+        print(f"{len(findings)} finding(s), worst **{report.get('worst') or 'none'}** · "
+              f"`--fail-on {threshold}` · exit `{code}`")
+        print()
+        if findings:
+            print("| severity | rule | tool |")
+            print("|---|---|---|")
+            order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+            for f in sorted(findings, key=lambda f: order.get(f.get("severity"), 9)):
+                print(f"| {f.get('severity')} | `{f.get('rule')}` | `{f.get('tool')}` |")
+            print()
+        for severity in ("critical", "high", "medium", "low", "info"):
+            if counts.get(severity):
+                print(f"- {severity}: {counts[severity]}")
+        PY
+        fi
+
+        exit "$code"
