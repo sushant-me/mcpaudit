@@ -3,6 +3,14 @@
 **Review an MCP server's tool declarations before you connect to it — and pin them, so a
 later change is visible instead of silent.**
 
+Install the released version:
+
+```bash
+pip install "git+https://github.com/sushant-me/mcpaudit.git@v0.1.2"
+```
+
+Or work from a clone (`pip install -e .`) - the commands below use files from this repository.
+
 ```bash
 pip install -e .                                  # stdlib only
 mcpaudit audit examples/tools_poisoned.json       # 11 findings, exit 1
