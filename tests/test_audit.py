@@ -376,3 +376,10 @@ def test_a_mutation_verb_in_the_description_is_still_caught() -> None:
               "annotations": {"readOnlyHint": True}}]
     rules = {f.rule for f in audit(tools).findings}
     assert "destructive-declared-read-only" in rules
+
+
+def test_cli_fail_on_none_reports_findings_without_failing() -> None:
+    """`--fail-on none` is what a team trial needs: the findings, and a green run."""
+    result = run_cli("audit", str(ROOT / "examples" / "tools_poisoned.json"), "--no-colour", "--fail-on", "none")
+    assert result.returncode == 0
+    assert "CRITICAL" in result.stdout  # reported, just not gating

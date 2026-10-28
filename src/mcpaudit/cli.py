@@ -95,8 +95,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     audit_parser.add_argument("--json", action="store_true", help="machine-readable output")
     audit_parser.add_argument(
-        "--fail-on", default="high", choices=sorted(SEVERITY_ORDER, key=SEVERITY_ORDER.get),
-        help="exit non-zero when a finding at or above this severity is present (default: high)",
+        "--fail-on", default="high",
+        choices=[*sorted(SEVERITY_ORDER, key=SEVERITY_ORDER.get), "none"],
+        help="exit non-zero when a finding at or above this severity is present "
+             "(default: high; 'none' reports findings without failing the exit code)",
     )
     audit_parser.add_argument("--lock", help="compare against a lock file and report drift")
     audit_parser.add_argument("--write-lock", metavar="PATH", help="record this server's declarations")
@@ -145,6 +147,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({**result.to_dict(), "drift": [d.to_dict() for d in drift]}, indent=2))
     else:
         print(_render_text(result, drift, colour))
+
+    # `none` is the report-only setting: a team adopting the gate wants the findings
+    # printed in CI before anything turns red, and a tool that cannot be run in that
+    # mode is a tool that gets switched off instead of tuned.
+    if args.fail_on == "none":
+        return EXIT_OK
 
     threshold = SEVERITY_ORDER[args.fail_on]
     blocking = [f for f in result.findings if SEVERITY_ORDER[f.severity] <= threshold]
